@@ -28,6 +28,7 @@ class DiffRunner(object):
         format_group.add_argument('-U', type=int, metavar='NUM', action='store', dest='unified_num', help='output NUM lines of unified context')
         format_group.add_argument('-n', '--ndiff', action='store_true', dest='ndiff', help='output Python Differ-style context')
         format_group.add_argument('-H', '--html', metavar='OUTPUT_FILE', type=argparse.FileType('w'), action='store', dest='html', help='output HTML format context')
+        parser.add_argument('-e', '--encoding', help='Specify file encoding used to read input files.', default="utf8")
         parser.add_argument('FILES', action=check_files_dirs, nargs=2, help='can be "FILE1 FILE2", "DIR1 DIR2", "FILE DIR", or "DIR FILE"')
         cur_dir = os.path.dirname(os.path.abspath(__file__))
         try:
@@ -38,7 +39,7 @@ class DiffRunner(object):
         parser.add_argument('-v', '--version', action='version', version='%(prog)s {version}'.format(version=self.version))
 
         # parser the argv
-        self.options = parser.parse_args(sys.argv[1:])
+        self.options = parser.parse_args(sys.argv[1:])  # or just parse_args()
 
         # run diff
         if self.options.html is not None:
@@ -62,7 +63,7 @@ class DiffRunner(object):
 
     def diff_html(self):
         dh = HTMLDiffHelper(html_file=self.options.html)
-        dh.diff(*self.options.FILES)
+        dh.diff(*self.options.FILES, encoding=self.options.encoding)
         dh.make_report()
 
     def diff_text(self, type='unified', n=3):

@@ -32,7 +32,7 @@ class BaseDiffHelper(object):
         return False
 
     @property
-    def diff_file(self):
+    def diff_file(self, file1, file2, encoding="utf8"):
         raise NotImplementedError()
 
     @property
@@ -43,10 +43,10 @@ class BaseDiffHelper(object):
     def handle_dcmp(self, dcmp):
         raise NotImplementedError()
 
-    def diff(self, a, b):
+    def diff(self, a, b, encoding='utf8'):
         # a is file, b is file
         if os.path.isfile(a) and os.path.isfile(b):
-            self.diff_file(a, b)
+            self.diff_file(a, b, encoding=encoding)
         # a is dir, b is dir
         elif os.path.isdir(a) and os.path.isdir(b):
             self.diff_dir(a, b)
@@ -79,12 +79,13 @@ class BaseDiffHelper(object):
 
 
 class HTMLDiffHelper(BaseDiffHelper):
-    html_wrapcolumn = 80
+    # html_wrapcolumn = 80
 
-    def __init__(self, html_file=None, contextual_differences=True):
+    def __init__(self, html_file=None, contextual_differences=True, html_wrapcolumn=80, encoding='utf8'):
         super(HTMLDiffHelper, self).__init__()
         # init logger
         self.logger = logging.getLogger(__name__)
+        self.html_wrapcolumn = html_wrapcolumn
         # setup the html_file
         if html_file is None:
             self.html_file = 'diff.html'
@@ -93,12 +94,18 @@ class HTMLDiffHelper(BaseDiffHelper):
         # loading the html settings
         self.div_container = html.div(class_='container')
         self.contextual_differences = contextual_differences
+        self.encoding = encoding
 
-    def diff_file(self, file1, file2):
-        html_diff = difflib.HtmlDiff(wrapcolumn=HTMLDiffHelper.html_wrapcolumn)
-        with codecs.open(file1, 'r', encoding='utf8') as f1:
-            with codecs.open(file2, 'r', encoding='utf8') as f2:
-                table = html_diff.make_table(f1.readlines(), f2.readlines(), fromdesc=file1, todesc=file2, context=self.contextual_differences)
+    def diff_file(self, file1, file2, encoding=None):
+        if encoding is None:
+            encoding = self.encoding or "utf8"
+        html_diff = difflib.HtmlDiff(wrapcolumn=self.html_wrapcolumn)
+        with codecs.open(file1, 'r', encoding=encoding) as f1:
+            with codecs.open(file2, 'r', encoding=encoding) as f2:
+                table = html_diff.make_table(
+                    f1.readlines(), f2.readlines(),
+                    fromdesc=file1, todesc=file2,
+                    context=self.contextual_differences, numlines=1)
         self.div_container.append(raw(table))
 
     def diff_dir(self, dir1, dir2):
@@ -196,7 +203,7 @@ class HTMLDiffHelper(BaseDiffHelper):
         """
         html_report = html.html(
             html.head(
-                html.meta(name='Content-Type', value='text/html; charset=utf-8'),
+                html.meta(name='Content-Type', value='text/html; charset=CP1252'),  # utf-8'),
                 html.title('Diff Report'),
                 html.style(
                     raw(html_report_css),
@@ -212,11 +219,11 @@ class HTMLDiffHelper(BaseDiffHelper):
         return self.report
 
     def make_report(self):
-        if isinstance(self.html_file, file):
-            self.html_file.write(self.report.unicode(indent=2).encode('utf8'))
+        if hasattr(self.html_file, 'write'):
+            self.html_file.write(self.report.unicode(indent=2))
         else:
             with open(self.html_file, 'w') as f:
-                f.write(self.report.unicode(indent=2).encode('utf8'))
+                f.write(self.report.unicode(indent=2))
 
 
 class ConsoleDiffHelper(BaseDiffHelper):
@@ -239,7 +246,7 @@ class ConsoleDiffHelper(BaseDiffHelper):
         if diff_type in [ConsoleDiffHelper.diff_type_unified, ConsoleDiffHelper.diff_type_context, ConsoleDiffHelper.diff_type_ndiff]:
             self.diff_type = diff_type
         else:
-            self.diff_type = diff_type_unified
+            self.diff_type = self.diff_type_unified
         self.n = n
 
     def diff_file(self, file1, file2):
